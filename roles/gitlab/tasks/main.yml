@@ -34,19 +34,38 @@
     src: .license_encryption_key.pub
     dest: "{{ gitlab_home }}/.license_encryption_key.pub"
     mode: '0644'
+  register: license_key_copied
 
 - name: Copy license.rb file
   copy:
     src: license.rb
     dest: "{{ gitlab_home }}/license.rb"
     mode: '0644'
+  register: license_rb_copied
 
 - name: Create GitLab Docker Compose file
   template:
     src: docker-compose.yml.j2
     dest: "{{ gitlab_home }}/docker-compose.yml"
     mode: '0644'
+    force: yes
   register: compose_file
+
+- name: Show Docker Compose file content
+  command: cat {{ gitlab_home }}/docker-compose.yml
+  register: compose_content
+  changed_when: false
+
+- name: Display Docker Compose file
+  debug:
+    var: compose_content.stdout_lines
+
+- name: Stop existing GitLab container
+  command: docker compose down
+  args:
+    chdir: "{{ gitlab_home }}"
+  when: compose_file.changed or license_key_copied.changed or license_rb_copied.changed
+  ignore_errors: yes
 
 - name: Pull GitLab Docker image
   command: docker compose pull
@@ -54,13 +73,6 @@
     chdir: "{{ gitlab_home }}"
   register: pull_result
   changed_when: pull_result.rc == 0
-
-- name: Stop existing GitLab container if compose file changed
-  command: docker compose down
-  args:
-    chdir: "{{ gitlab_home }}"
-  when: compose_file.changed
-  ignore_errors: yes
 
 - name: Start GitLab with Docker Compose
   command: docker compose up -d

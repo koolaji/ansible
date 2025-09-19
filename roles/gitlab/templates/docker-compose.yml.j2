@@ -2,7 +2,7 @@ version: '3.6'
 services:
   gitlab:
     container_name: gitlab
-    image: gitlab/gitlab-ee:{{ gitlab_version if gitlab_version else 'latest' }}
+    image: gitlab/gitlab-ee:{{ gitlab_version }}
     restart: always
     hostname: {{ gitlab_hostname }}
     ports:
