@@ -1,8 +1,8 @@
 version: '3.6'
 services:
   gitlab:
-    image: gitlab/gitlab-ee:{{ gitlab_version }}
     container_name: gitlab
+    image: gitlab/gitlab-ee:{{ gitlab_version if gitlab_version else 'latest' }}
     restart: always
     hostname: {{ gitlab_hostname }}
     ports:
@@ -14,12 +14,9 @@ services:
       - {{ gitlab_home }}/logs:/var/log/gitlab
       - {{ gitlab_home }}/data:/var/opt/gitlab
       - {{ gitlab_backup_path }}:{{ gitlab_backup_path }}
-      - {{ gitlab_home }}/.license_encryption_key.pub:/opt/gitlab/embedded/service/gitlab-rails/.license_encryption_key.pub:ro
-      - {{ gitlab_home }}/license.rb:/opt/gitlab/embedded/service/gitlab-rails/ee/app/models/license.rb:ro
-      - {{ gitlab_home }}/gitlab-secondary.rb:/etc/gitlab/gitlab.rb
     shm_size: '256m'
     environment:
-      GITLAB_OMNIBUS_CONFIG: >-
+      GITLAB_OMNIBUS_CONFIG: |
         external_url '{{ gitlab_external_url }}';
         gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }};
         gitlab_rails['smtp_enable'] = false;

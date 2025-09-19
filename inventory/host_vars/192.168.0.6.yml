@@ -1,8 +1,7 @@
 ---
 # Host-specific variables for GitLab server
 
-# GitLab version (use specific version or leave empty for latest)
-# Format: "18.4.0-ee.0" or leave empty for latest
+# GitLab version (empty for latest)
 gitlab_version: ""  # Empty means latest version
 
 # GitLab configuration

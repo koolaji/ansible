@@ -1,85 +1,60 @@
 ---
-# Tasks for GitLab EE installation using Omnibus package
+# Tasks for GitLab EE installation with Docker Compose
 
 - name: Ensure Docker is installed
   include_role:
     name: docker
 
-- name: Install required dependencies
+- name: Create GitLab directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ gitlab_home }}/config"
+    - "{{ gitlab_home }}/logs"
+    - "{{ gitlab_home }}/data"
+    - "{{ gitlab_backup_path }}"
+
+- name: Check if Docker Compose is installed
+  command: docker compose version
+  register: docker_compose_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Ensure Docker Compose plugin is installed
   apt:
-    name:
-      - curl
-      - openssh-server
-      - ca-certificates
-      - tzdata
-      - perl
+    name: docker-compose-plugin
     state: present
-    update_cache: yes
+  when: docker_compose_check is failed
 
-- name: Add GitLab repository GPG key
-  apt_key:
-    url: https://packages.gitlab.com/gitlab/gitlab-ee/gpgkey
-    state: present
+- name: Create GitLab Docker Compose file
+  template:
+    src: docker-compose.yml.j2
+    dest: "{{ gitlab_home }}/docker-compose.yml"
+    mode: '0644'
+  register: compose_file
 
-- name: Add GitLab repository
-  apt_repository:
-    repo: "deb https://packages.gitlab.com/gitlab/gitlab-ee/ubuntu/ {{ ansible_distribution_release }} main"
-    state: present
-    filename: gitlab-ee
-    update_cache: yes
+- name: Pull GitLab Docker image
+  command: docker compose pull
+  args:
+    chdir: "{{ gitlab_home }}"
+  register: pull_result
+  changed_when: pull_result.rc == 0
 
-- name: Configure GitLab external URL
-  lineinfile:
-    path: /etc/gitlab/gitlab.rb
-    regexp: "^external_url "
-    line: "external_url '{{ gitlab_external_url }}'"
-    create: yes
-  register: gitlab_config
+- name: Stop existing GitLab container if compose file changed
+  command: docker compose down
+  args:
+    chdir: "{{ gitlab_home }}"
+  when: compose_file.changed
+  ignore_errors: yes
 
-- name: Configure GitLab SSH port
-  lineinfile:
-    path: /etc/gitlab/gitlab.rb
-    regexp: "^gitlab_rails\\['gitlab_shell_ssh_port'\\]"
-    line: "gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }}"
-    create: yes
-  register: gitlab_config
-
-- name: Disable SMTP
-  lineinfile:
-    path: /etc/gitlab/gitlab.rb
-    regexp: "^gitlab_rails\\['smtp_enable'\\]"
-    line: "gitlab_rails['smtp_enable'] = false"
-    create: yes
-  register: gitlab_config
-
-- name: Configure backup path
-  lineinfile:
-    path: /etc/gitlab/gitlab.rb
-    regexp: "^gitlab_rails\\['backup_path'\\]"
-    line: "gitlab_rails['backup_path'] = '{{ gitlab_backup_path }}'"
-    create: yes
-  when: gitlab_backup_enabled
-  register: gitlab_config
-
-- name: Configure backup retention
-  lineinfile:
-    path: /etc/gitlab/gitlab.rb
-    regexp: "^gitlab_rails\\['backup_keep_time'\\]"
-    line: "gitlab_rails['backup_keep_time'] = {{ gitlab_backup_keep_time }}"
-    create: yes
-  when: gitlab_backup_enabled
-  register: gitlab_config
-
-- name: Install GitLab EE package
-  apt:
-    name: gitlab-ee={{ gitlab_version }}
-    state: present
-  environment:
-    EXTERNAL_URL: "{{ gitlab_external_url }}"
-
-- name: Reconfigure GitLab
-  command: gitlab-ctl reconfigure
-  when: gitlab_config.changed
+- name: Start GitLab with Docker Compose
+  command: docker compose up -d
+  args:
+    chdir: "{{ gitlab_home }}"
+  register: compose_up
+  changed_when: compose_up.rc == 0
 
 - name: Wait for GitLab to become available
   uri:
@@ -98,6 +73,6 @@
       GitLab has been installed and should be available at {{ gitlab_external_url }}
       
       Initial root password can be retrieved with:
-      sudo cat /etc/gitlab/initial_root_password
+      docker exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
       
       Note: This password is valid for 24 hours after installation.
