@@ -1,72 +1,85 @@
 ---
-# Tasks for GitLab EE installation with Docker Compose
+# Tasks for GitLab EE installation using Omnibus package
 
 - name: Ensure Docker is installed
   include_role:
     name: docker
 
-- name: Create GitLab directories
-  file:
-    path: "{{ item }}"
-    state: directory
-    mode: '0755'
-  loop:
-    - "{{ gitlab_home }}/config"
-    - "{{ gitlab_home }}/logs"
-    - "{{ gitlab_home }}/data"
-    - "{{ gitlab_backup_path }}"
-
-- name: Check if Docker Compose is installed
-  command: docker compose version
-  register: docker_compose_check
-  ignore_errors: true
-  changed_when: false
-
-- name: Ensure Docker Compose plugin is installed
+- name: Install required dependencies
   apt:
-    name: docker-compose-plugin
+    name:
+      - curl
+      - openssh-server
+      - ca-certificates
+      - tzdata
+      - perl
     state: present
-  when: docker_compose_check is failed
+    update_cache: yes
 
-# Copy license files to enable GitLab EE features
-- name: Copy license encryption key
-  copy:
-    src: .license_encryption_key.pub
-    dest: "{{ gitlab_home }}/.license_encryption_key.pub"
-    mode: '0644'
+- name: Add GitLab repository GPG key
+  apt_key:
+    url: https://packages.gitlab.com/gitlab/gitlab-ee/gpgkey
+    state: present
 
-- name: Copy license.rb file
-  copy:
-    src: license.rb
-    dest: "{{ gitlab_home }}/license.rb"
-    mode: '0644'
+- name: Add GitLab repository
+  apt_repository:
+    repo: "deb https://packages.gitlab.com/gitlab/gitlab-ee/ubuntu/ {{ ansible_distribution_release }} main"
+    state: present
+    filename: gitlab-ee
+    update_cache: yes
 
-- name: Copy gitlab-secondary.rb configuration
-  copy:
-    src: gitlab-secondary.rb
-    dest: "{{ gitlab_home }}/gitlab-secondary.rb"
-    mode: '0644'
+- name: Configure GitLab external URL
+  lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "^external_url "
+    line: "external_url '{{ gitlab_external_url }}'"
+    create: yes
+  register: gitlab_config
 
-- name: Create GitLab Docker Compose file
-  template:
-    src: docker-compose.yml.j2
-    dest: "{{ gitlab_home }}/docker-compose.yml"
-    mode: '0644'
-  register: compose_file
+- name: Configure GitLab SSH port
+  lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "^gitlab_rails\\['gitlab_shell_ssh_port'\\]"
+    line: "gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }}"
+    create: yes
+  register: gitlab_config
 
-- name: Pull GitLab Docker image
-  command: docker compose pull
-  args:
-    chdir: "{{ gitlab_home }}"
-  register: pull_result
-  changed_when: pull_result.rc == 0
+- name: Disable SMTP
+  lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "^gitlab_rails\\['smtp_enable'\\]"
+    line: "gitlab_rails['smtp_enable'] = false"
+    create: yes
+  register: gitlab_config
 
-- name: Start GitLab with Docker Compose
-  command: docker compose up -d
-  args:
-    chdir: "{{ gitlab_home }}"
-  register: compose_up
-  changed_when: compose_up.rc == 0
+- name: Configure backup path
+  lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "^gitlab_rails\\['backup_path'\\]"
+    line: "gitlab_rails['backup_path'] = '{{ gitlab_backup_path }}'"
+    create: yes
+  when: gitlab_backup_enabled
+  register: gitlab_config
+
+- name: Configure backup retention
+  lineinfile:
+    path: /etc/gitlab/gitlab.rb
+    regexp: "^gitlab_rails\\['backup_keep_time'\\]"
+    line: "gitlab_rails['backup_keep_time'] = {{ gitlab_backup_keep_time }}"
+    create: yes
+  when: gitlab_backup_enabled
+  register: gitlab_config
+
+- name: Install GitLab EE package
+  apt:
+    name: gitlab-ee={{ gitlab_version }}
+    state: present
+  environment:
+    EXTERNAL_URL: "{{ gitlab_external_url }}"
+
+- name: Reconfigure GitLab
+  command: gitlab-ctl reconfigure
+  when: gitlab_config.changed
 
 - name: Wait for GitLab to become available
   uri:
@@ -85,8 +98,6 @@
       GitLab has been installed and should be available at {{ gitlab_external_url }}
       
       Initial root password can be retrieved with:
-      docker exec -it $(docker ps -q --filter "name=gitlab_gitlab") grep 'Password:' /etc/gitlab/initial_root_password
+      sudo cat /etc/gitlab/initial_root_password
       
       Note: This password is valid for 24 hours after installation.
-      
-      GitLab EE features have been enabled with the custom license configuration.
