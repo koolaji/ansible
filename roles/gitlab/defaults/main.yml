@@ -1,0 +1,39 @@
+---
+# GitLab installation defaults
+
+# GitLab version (latest by default)
+gitlab_version: "latest"
+
+# GitLab instance hostname
+gitlab_hostname: "gitlab.example.com"
+
+# GitLab home directory where data will be stored
+gitlab_home: "/srv/gitlab"
+
+# GitLab external URL
+gitlab_external_url: "http://{{ gitlab_hostname }}"
+
+# GitLab SSH port
+gitlab_ssh_port: 22
+
+# GitLab HTTP port
+gitlab_http_port: 80
+
+# GitLab HTTPS port
+gitlab_https_port: 443
+
+# SMTP settings
+gitlab_smtp_enabled: false
+gitlab_smtp_address: "smtp.example.com"
+gitlab_smtp_port: 587
+gitlab_smtp_user_name: "smtp_user"
+gitlab_smtp_password: "smtp_password"
+gitlab_smtp_domain: "example.com"
+gitlab_smtp_authentication: "login"
+gitlab_smtp_enable_starttls_auto: true
+gitlab_smtp_tls: false
+
+# Backup settings
+gitlab_backup_enabled: true
+gitlab_backup_path: "{{ gitlab_home }}/backups"
+gitlab_backup_keep_time: "604800" # 7 days in seconds

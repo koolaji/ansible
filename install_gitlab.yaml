@@ -1,0 +1,29 @@
+---
+- name: Install GitLab EE with Docker Compose
+  hosts: gitlab-ee
+  become: true
+  
+  vars:
+    # Override default variables here if needed
+    gitlab_hostname: "{{ inventory_hostname }}"
+    gitlab_external_url: "http://{{ inventory_hostname }}"
+  
+  roles:
+    - gitlab
+  
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      changed_when: false
+      when: ansible_os_family == "Debian"
+      
+  post_tasks:
+    - name: Display GitLab installation information
+      debug:
+        msg: |
+          GitLab EE has been successfully installed on {{ inventory_hostname }}
+          
+          You can access your GitLab instance at: {{ gitlab_external_url }}
+          
+          Please wait a few minutes for GitLab to complete its initial setup.

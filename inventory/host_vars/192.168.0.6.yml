@@ -1,0 +1,29 @@
+---
+# Host-specific variables for GitLab server
+
+# GitLab version
+gitlab_version: "18.4.0-ee.0"  # You can specify a specific version like "15.11.3-ee" instead of "latest"
+
+# GitLab configuration
+gitlab_hostname: "192.168.0.6"
+gitlab_external_url: "http://192.168.0.6"
+gitlab_home: "/srv/gitlab"
+
+# GitLab ports
+gitlab_http_port: 80
+gitlab_https_port: 443
+gitlab_ssh_port: 22
+
+# Backup configuration
+gitlab_backup_enabled: true
+gitlab_backup_path: "/srv/gitlab/backups"
+gitlab_backup_keep_time: "604800"  # 7 days in seconds
+
+# SMTP configuration (disabled by default)
+gitlab_smtp_enabled: false
+# Uncomment and modify these settings to enable email
+# gitlab_smtp_address: "smtp.example.com"
+# gitlab_smtp_port: 587
+# gitlab_smtp_user_name: "smtp_user"
+# gitlab_smtp_password: "smtp_password"
+# gitlab_smtp_domain: "example.com"

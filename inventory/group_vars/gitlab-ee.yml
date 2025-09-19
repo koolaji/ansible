@@ -1,0 +1,21 @@
+---
+# Group variables for all GitLab EE servers
+
+# System settings
+ansible_become: true
+ansible_become_method: sudo
+
+# Docker settings
+docker_users:
+  - "{{ ansible_user }}"
+
+# GitLab version
+gitlab_version: "latest"
+
+# GitLab system requirements
+gitlab_memory_min: 4096  # Minimum memory in MB
+gitlab_cpu_min: 2        # Minimum number of CPU cores
+gitlab_disk_min: 10240   # Minimum disk space in MB (10GB)
+
+# GitLab system check
+gitlab_check_requirements: true
