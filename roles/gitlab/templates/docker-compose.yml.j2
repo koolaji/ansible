@@ -1,47 +1,29 @@
 version: '3.6'
 services:
   gitlab:
-    image: 'gitlab/gitlab-ee:{{ gitlab_version }}'
+    image: gitlab/gitlab-ee:{{ gitlab_version }}
+    container_name: gitlab
     restart: always
-    hostname: '{{ gitlab_hostname }}'
+    hostname: {{ gitlab_hostname }}
+    ports:
+      - "{{ gitlab_http_port }}:80"
+      - "{{ gitlab_https_port }}:443"
+      - "{{ gitlab_ssh_port }}:22"
+    volumes:
+      - {{ gitlab_home }}/config:/etc/gitlab
+      - {{ gitlab_home }}/logs:/var/log/gitlab
+      - {{ gitlab_home }}/data:/var/opt/gitlab
+      - {{ gitlab_backup_path }}:{{ gitlab_backup_path }}
+      - {{ gitlab_home }}/.license_encryption_key.pub:/opt/gitlab/embedded/service/gitlab-rails/.license_encryption_key.pub:ro
+      - {{ gitlab_home }}/license.rb:/opt/gitlab/embedded/service/gitlab-rails/ee/app/models/license.rb:ro
+      - {{ gitlab_home }}/gitlab-secondary.rb:/etc/gitlab/gitlab.rb
+    shm_size: '256m'
     environment:
-      GITLAB_OMNIBUS_CONFIG: |
+      GITLAB_OMNIBUS_CONFIG: >-
         external_url '{{ gitlab_external_url }}';
         gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }};
-        
-        # Disable SMTP by default
         gitlab_rails['smtp_enable'] = false;
-        
-        {% if gitlab_smtp_enabled %}
-        # SMTP settings (only applied if gitlab_smtp_enabled is true)
-        gitlab_rails['smtp_enable'] = true;
-        gitlab_rails['smtp_address'] = '{{ gitlab_smtp_address }}';
-        gitlab_rails['smtp_port'] = {{ gitlab_smtp_port }};
-        gitlab_rails['smtp_user_name'] = '{{ gitlab_smtp_user_name }}';
-        gitlab_rails['smtp_password'] = '{{ gitlab_smtp_password }}';
-        gitlab_rails['smtp_domain'] = '{{ gitlab_smtp_domain }}';
-        gitlab_rails['smtp_authentication'] = '{{ gitlab_smtp_authentication }}';
-        gitlab_rails['smtp_enable_starttls_auto'] = {{ gitlab_smtp_enable_starttls_auto | lower }};
-        gitlab_rails['smtp_tls'] = {{ gitlab_smtp_tls | lower }};
-        gitlab_rails['gitlab_email_from'] = 'gitlab@{{ gitlab_smtp_domain }}';
-        gitlab_rails['gitlab_email_reply_to'] = 'noreply@{{ gitlab_smtp_domain }}';
-        {% endif %}
-        
         {% if gitlab_backup_enabled %}
-        # Backup settings
-        gitlab_rails['backup_path'] = "{{ gitlab_backup_path }}";
+        gitlab_rails['backup_path'] = '{{ gitlab_backup_path }}';
         gitlab_rails['backup_keep_time'] = {{ gitlab_backup_keep_time }};
         {% endif %}
-    ports:
-      - '{{ gitlab_http_port }}:80'
-      - '{{ gitlab_https_port }}:443'
-      - '{{ gitlab_ssh_port }}:22'
-    volumes:
-      - '{{ gitlab_home }}/config:/etc/gitlab'
-      - '{{ gitlab_home }}/logs:/var/log/gitlab'
-      - '{{ gitlab_home }}/data:/var/opt/gitlab'
-      - '{{ gitlab_backup_path }}:{{ gitlab_backup_path }}'
-      - '{{ gitlab_home }}/.license_encryption_key.pub:/opt/gitlab/embedded/service/gitlab-rails/.license_encryption_key.pub:ro'
-      - '{{ gitlab_home }}/license.rb:/opt/gitlab/embedded/service/gitlab-rails/ee/app/models/license.rb:ro'
-      - '{{ gitlab_home }}/gitlab-secondary.rb:/etc/gitlab/gitlab.rb'
-    shm_size: '256m'
