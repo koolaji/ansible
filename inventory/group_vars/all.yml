@@ -1,0 +1,5 @@
+# Variables for all hosts
+ansible_become: true
+ansible_become_method: sudo
+
+# You can add more global variables here

@@ -1,0 +1,11 @@
+---
+# Default variables for docker role
+
+# Docker version to install (leave empty for latest)
+docker_version: ""
+
+# Whether to start Docker on boot
+docker_start_on_boot: true
+
+# Docker users to add to docker group
+docker_users: []

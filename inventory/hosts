@@ -1,0 +1,11 @@
+[all]
+# Add your target hosts here
+localhost ansible_connection=local
+
+[webservers]
+# Add web servers here if needed
+
+[dbservers]
+# Add database servers here if needed
+
+# You can add more groups as needed
