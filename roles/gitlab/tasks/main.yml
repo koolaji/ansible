@@ -41,12 +41,6 @@
     dest: "{{ gitlab_home }}/license.rb"
     mode: '0644'
 
-- name: Copy gitlab-secondary.rb configuration
-  copy:
-    src: gitlab-secondary.rb
-    dest: "{{ gitlab_home }}/gitlab-secondary.rb"
-    mode: '0644'
-
 - name: Create GitLab Docker Compose file
   template:
     src: docker-compose.yml.j2
