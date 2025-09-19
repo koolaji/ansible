@@ -6,31 +6,31 @@ services:
     hostname: '{{ gitlab_hostname }}'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url '{{ gitlab_external_url }}'
-        gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }}
+        external_url '{{ gitlab_external_url }}';
+        gitlab_rails['gitlab_shell_ssh_port'] = {{ gitlab_ssh_port }};
         
         # Disable SMTP by default
-        gitlab_rails['smtp_enable'] = false
+        gitlab_rails['smtp_enable'] = false;
         
         {% if gitlab_smtp_enabled %}
         # SMTP settings (only applied if gitlab_smtp_enabled is true)
-        gitlab_rails['smtp_enable'] = true
-        gitlab_rails['smtp_address'] = '{{ gitlab_smtp_address }}'
-        gitlab_rails['smtp_port'] = {{ gitlab_smtp_port }}
-        gitlab_rails['smtp_user_name'] = '{{ gitlab_smtp_user_name }}'
-        gitlab_rails['smtp_password'] = '{{ gitlab_smtp_password }}'
-        gitlab_rails['smtp_domain'] = '{{ gitlab_smtp_domain }}'
-        gitlab_rails['smtp_authentication'] = '{{ gitlab_smtp_authentication }}'
-        gitlab_rails['smtp_enable_starttls_auto'] = {{ gitlab_smtp_enable_starttls_auto | lower }}
-        gitlab_rails['smtp_tls'] = {{ gitlab_smtp_tls | lower }}
-        gitlab_rails['gitlab_email_from'] = 'gitlab@{{ gitlab_smtp_domain }}'
-        gitlab_rails['gitlab_email_reply_to'] = 'noreply@{{ gitlab_smtp_domain }}'
+        gitlab_rails['smtp_enable'] = true;
+        gitlab_rails['smtp_address'] = '{{ gitlab_smtp_address }}';
+        gitlab_rails['smtp_port'] = {{ gitlab_smtp_port }};
+        gitlab_rails['smtp_user_name'] = '{{ gitlab_smtp_user_name }}';
+        gitlab_rails['smtp_password'] = '{{ gitlab_smtp_password }}';
+        gitlab_rails['smtp_domain'] = '{{ gitlab_smtp_domain }}';
+        gitlab_rails['smtp_authentication'] = '{{ gitlab_smtp_authentication }}';
+        gitlab_rails['smtp_enable_starttls_auto'] = {{ gitlab_smtp_enable_starttls_auto | lower }};
+        gitlab_rails['smtp_tls'] = {{ gitlab_smtp_tls | lower }};
+        gitlab_rails['gitlab_email_from'] = 'gitlab@{{ gitlab_smtp_domain }}';
+        gitlab_rails['gitlab_email_reply_to'] = 'noreply@{{ gitlab_smtp_domain }}';
         {% endif %}
         
         {% if gitlab_backup_enabled %}
         # Backup settings
-        gitlab_rails['backup_path'] = "{{ gitlab_backup_path }}"
-        gitlab_rails['backup_keep_time'] = {{ gitlab_backup_keep_time }}
+        gitlab_rails['backup_path'] = "{{ gitlab_backup_path }}";
+        gitlab_rails['backup_keep_time'] = {{ gitlab_backup_keep_time }};
         {% endif %}
     ports:
       - '{{ gitlab_http_port }}:80'
