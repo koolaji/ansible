@@ -28,6 +28,25 @@
     state: present
   when: docker_compose_check is failed
 
+# Copy license files to enable GitLab EE features
+- name: Copy license encryption key
+  copy:
+    src: .license_encryption_key.pub
+    dest: "{{ gitlab_home }}/.license_encryption_key.pub"
+    mode: '0644'
+
+- name: Copy license.rb file
+  copy:
+    src: license.rb
+    dest: "{{ gitlab_home }}/license.rb"
+    mode: '0644'
+
+- name: Copy gitlab-secondary.rb configuration
+  copy:
+    src: gitlab-secondary.rb
+    dest: "{{ gitlab_home }}/gitlab-secondary.rb"
+    mode: '0644'
+
 - name: Create GitLab Docker Compose file
   template:
     src: docker-compose.yml.j2
@@ -76,3 +95,5 @@
       docker exec -it gitlab grep 'Password:' /etc/gitlab/initial_root_password
       
       Note: This password is valid for 24 hours after installation.
+      
+      GitLab EE features have been enabled with the custom license configuration.

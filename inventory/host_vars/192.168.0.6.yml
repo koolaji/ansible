@@ -1,13 +1,13 @@
 ---
 # Host-specific variables for GitLab server
 
-# GitLab version (empty for latest)
-gitlab_version: ""  # Empty means latest version
+# GitLab version
+gitlab_version: "18.4.0-ee.0"  # Using the specific version you pulled
 
 # GitLab configuration
 gitlab_hostname: "192.168.0.6"
 gitlab_external_url: "http://192.168.0.6"
-gitlab_home: "/var/opt/gitlab"
+gitlab_home: "/srv/gitlab"
 
 # GitLab ports
 gitlab_http_port: 80
@@ -16,7 +16,7 @@ gitlab_ssh_port: 2222  # Using port 2222 for SSH to avoid conflict with system S
 
 # Backup configuration
 gitlab_backup_enabled: true
-gitlab_backup_path: "/var/opt/gitlab/backups"
+gitlab_backup_path: "/srv/gitlab/backups"
 gitlab_backup_keep_time: "604800"  # 7 days in seconds
 
 # SMTP configuration (disabled by default)

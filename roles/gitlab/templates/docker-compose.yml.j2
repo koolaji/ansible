@@ -14,6 +14,8 @@ services:
       - {{ gitlab_home }}/logs:/var/log/gitlab
       - {{ gitlab_home }}/data:/var/opt/gitlab
       - {{ gitlab_backup_path }}:{{ gitlab_backup_path }}
+      - {{ gitlab_home }}/.license_encryption_key.pub:/opt/gitlab/embedded/service/gitlab-rails/.license_encryption_key.pub:ro
+      - {{ gitlab_home }}/license.rb:/opt/gitlab/embedded/service/gitlab-rails/ee/app/models/license.rb:ro
     shm_size: '256m'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
