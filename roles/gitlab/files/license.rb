@@ -4,7 +4,7 @@
 # and it is installed at instance level.
 # GitLab SaaS is a special self-managed instance which has a license installed
 # that is mapped to an Ultimate plan.
-class License < MainClusterwide::ApplicationRecord
+class License < ApplicationRecord
   include ActionView::Helpers::NumberHelper
   include Gitlab::Utils::StrongMemoize
 
@@ -35,7 +35,7 @@ class License < MainClusterwide::ApplicationRecord
   validate :valid_license
   validate :check_users_limit, if: :new_record?, unless: [:validate_with_trueup?, :reconciliation_completed?]
   validate :check_trueup, unless: :reconciliation_completed?, if: [:new_record?, :validate_with_trueup?]
-  validate :check_restricted_user_count, if: [:new_record?, :reconciliation_completed?]
+  validate :check_available_seats, if: [:new_record?, :reconciliation_completed?]
 
   # When an online cloud license subscription is cancelled, the license_key received from the seat link sync
   # is an expired license but we still want to be able to create it to reflect that the license is not active anymore.
@@ -142,6 +142,12 @@ class License < MainClusterwide::ApplicationRecord
     end
     # rubocop: enable Gitlab/FeatureAvailableUsage
 
+    # rubocop: disable Gitlab/FeatureAvailableUsage -- `License.feature_available?` is allowed, but the cop doesn't detect that we're inside the `License` class itself.
+    def duo_core_features_available?
+      feature_available?(:code_suggestions) || feature_available?(:ai_chat)
+    end
+    # rubocop: enable Gitlab/FeatureAvailableUsage
+
     private
 
     def load_future_dated
@@ -157,16 +163,16 @@ class License < MainClusterwide::ApplicationRecord
     cloud_license? && !!license&.offline_cloud_licensing?
   end
 
-  def restricted_user_count
+  def seats
     restricted_attr(:active_user_count)
-  end
-
-  def restricted_user_count?
-    restricted_user_count.to_i > 0
   end
 
   def ultimate?
     plan == License::ULTIMATE_PLAN
+  end
+
+  def premium?
+    plan == License::PREMIUM_PLAN
   end
 
   def customer_service_enabled?
@@ -302,8 +308,8 @@ class License < MainClusterwide::ApplicationRecord
     return false if cloud_license?
 
     [restricted_attr(:trueup_quantity),
-     restricted_attr(:trueup_from),
-     restricted_attr(:trueup_to)].all?(&:present?)
+      restricted_attr(:trueup_from),
+      restricted_attr(:trueup_to)].all?(&:present?)
   end
 
   alias_method :exclude_guests_from_active_count?, :ultimate?
@@ -315,11 +321,11 @@ class License < MainClusterwide::ApplicationRecord
   end
 
   def overage(user_count = nil)
-    return 0 if restricted_user_count.nil?
+    return 0 if seats.nil?
 
     user_count ||= daily_billable_users_count
 
-    [user_count - restricted_user_count, 0].max
+    [user_count - seats, 0].max
   end
 
   def overage_with_historical_max
@@ -402,14 +408,14 @@ class License < MainClusterwide::ApplicationRecord
 
   def active_user_count_threshold
     ACTIVE_USER_COUNT_THRESHOLD_LEVELS.find do |threshold|
-      threshold[:range].include?(restricted_user_count)
+      threshold[:range].include?(seats)
     end
   end
 
   def active_user_count_threshold_reached?
-    return false if restricted_user_count.nil?
+    return false if seats.nil?
     return false if daily_billable_users_count <= 1
-    return false if daily_billable_users_count > restricted_user_count
+    return false if daily_billable_users_count > seats
 
     active_user_count_threshold[:value] >= if active_user_count_threshold[:percentage]
                                              remaining_user_count.fdiv(daily_billable_users_count) * 100
@@ -419,7 +425,7 @@ class License < MainClusterwide::ApplicationRecord
   end
 
   def remaining_user_count
-    restricted_user_count - daily_billable_users_count
+    seats - daily_billable_users_count
   end
 
   LICENSEE_ATTRIBUTES.each do |attribute|
@@ -496,29 +502,29 @@ class License < MainClusterwide::ApplicationRecord
 
   # See comment for `prior_historical_max`.
   def previous_started_at
-    (License.current&.starts_at || starts_at - 1.year).beginning_of_day
+    (License.current&.starts_at || (starts_at - 1.year)).beginning_of_day
   end
 
   # See comment for `prior_historical_max`.
   def previous_expired_at
-    (License.current&.expires_at || expires_at && expires_at - 1.year || starts_at).end_of_day
+    (License.current&.expires_at || (expires_at && (expires_at - 1.year)) || starts_at).end_of_day
   end
 
-  def restricted_user_count_with_threshold
-    (restricted_user_count * (1 + ALLOWED_PERCENTAGE_OF_USERS_OVERAGE)).to_i
+  def seats_with_threshold
+    (seats * (1 + ALLOWED_PERCENTAGE_OF_USERS_OVERAGE)).to_i
   end
 
   def check_users_limit
     return if cloud_license?
-    return unless restricted_user_count
+    return unless seats
 
     user_count = daily_billable_users_count
     current_period = true
 
     if previous_user_count && (prior_historical_max <= previous_user_count)
-      return if restricted_user_count_with_threshold >= daily_billable_users_count
+      return if seats_with_threshold >= daily_billable_users_count
     else
-      return if restricted_user_count_with_threshold >= prior_historical_max
+      return if seats_with_threshold >= prior_historical_max
 
       user_count = prior_historical_max
       current_period = false
@@ -541,7 +547,7 @@ class License < MainClusterwide::ApplicationRecord
 
   def check_trueup
     unless trueup_period_seat_count
-      check_restricted_user_count
+      check_available_seats
       return
     end
 
@@ -550,10 +556,10 @@ class License < MainClusterwide::ApplicationRecord
     expected_trueup_qty = max_historical - trueup_period_seat_count
 
     if trueup_quantity_with_threshold >= expected_trueup_qty
-      check_restricted_user_count
+      check_available_seats
     else
-      message = ["You have applied a True-up for #{trueup_qty} #{"user".pluralize(trueup_qty)}"]
-      message << "but you need one for #{expected_trueup_qty} #{"user".pluralize(expected_trueup_qty)}."
+      message = ["You have applied a True-up for #{trueup_qty} #{'user'.pluralize(trueup_qty)}"]
+      message << "but you need one for #{expected_trueup_qty} #{'user'.pluralize(expected_trueup_qty)}."
       message << "Please contact sales at https://about.gitlab.com/sales/"
 
       self.errors.add(:base, :check_trueup, message: message.join(' '))
@@ -564,22 +570,22 @@ class License < MainClusterwide::ApplicationRecord
     (restrictions[:trueup_quantity] * (1 + ALLOWED_PERCENTAGE_OF_USERS_OVERAGE)).to_i
   end
 
-  def check_restricted_user_count
+  def check_available_seats
     return if cloud_license?
-    return unless restricted_user_count && restricted_user_count_with_threshold < daily_billable_users_count
+    return unless seats && seats_with_threshold < daily_billable_users_count
 
-    add_limit_error(type: :check_restricted_user_count, user_count: daily_billable_users_count)
+    add_limit_error(type: :check_available_seats, user_count: daily_billable_users_count)
   end
 
   def add_limit_error(user_count:, current_period: true, type: :invalid)
     overage_count = overage(user_count)
 
     message =  [current_period ? "This GitLab installation currently has" : "During the year before this license started, this GitLab installation had"]
-    message << "#{number_with_delimiter(user_count)} active #{"user".pluralize(user_count)},"
-    message << "exceeding this license's limit of #{number_with_delimiter(restricted_user_count)} by"
-    message << "#{number_with_delimiter(overage_count)} #{"user".pluralize(overage_count)}."
+    message << "#{number_with_delimiter(user_count)} active #{'user'.pluralize(user_count)},"
+    message << "exceeding this license's limit of #{number_with_delimiter(seats)} by"
+    message << "#{number_with_delimiter(overage_count)} #{'user'.pluralize(overage_count)}."
     message << "Please add a license for at least"
-    message << "#{number_with_delimiter(user_count)} #{"user".pluralize(user_count)} or contact sales at https://about.gitlab.com/sales/"
+    message << "#{number_with_delimiter(user_count)} #{'user'.pluralize(user_count)} or contact sales at https://about.gitlab.com/sales/"
 
     self.errors.add(:base, type, message: message.join(' '))
   end
@@ -591,7 +597,7 @@ class License < MainClusterwide::ApplicationRecord
   end
 
   def starts_at_for_historical_data
-    (starts_at || Time.current - 1.year).beginning_of_day
+    (starts_at || (Time.current - 1.year)).beginning_of_day
   end
 
   def expires_at_for_historical_data
